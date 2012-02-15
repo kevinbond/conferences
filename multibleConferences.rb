@@ -89,7 +89,7 @@ end
 def updateCouchDBData(roomNum, method, callerID) 
   
   json = getCounchDBData 
-  url = URI.parse("http://con.iriscouch.com/_utils/") 
+  url = URI.parse("http://couchgoodness.iriscouch.com/_utils/") 
   server = Couch::Server.new(url.host, url.port) 
   server.delete("/conferences") 
   server.put("/conferences", "") 
@@ -112,14 +112,12 @@ def updateCouchDBData(roomNum, method, callerID)
     avail["#{roomNum}"]["people"] = newPeople
   end 
 
-  
+
   doc = <<-JSON
   {"type":"comment","body": #{avail.to_json}}
   JSON
-  
-  server.put("/conferences/count", doc.strip) 
 
-  
+  server.put("/conferences/count", doc.strip) 
 end 
 
 #Different rooms available 
@@ -135,21 +133,25 @@ while $choice != "0"
 
   #Entering the specified conference 
   if $choice != "8" 
+    #Promts the user which room they are entering and the options that they can choose from
     say"Entering room #{conferenceRooms[room.to_i - 1]}. Press 9 to move to the next room, 6 to move to the previous room, 8 to hear how many people are in the room, 1 to hear the choices again or 0 to exit." 
+    #Updates the couchDB - takes the room number and goes to the function add and adds one person with their callerID
     updateCouchDBData(room.to_i, "add", callerID) 
   end 
 
   #Setting the choice to 0 in case of a hangup 
   $choice = "0" 
   
-  #Entering the conference 
+  #Entering the conference using the room number as the conference ID
   conference "#{room.to_i - 1}", { 
     :terminator => "6, 9, 0, 1, 8", 
     :mode => "dtmf", 
     :onChoice => lambda { |event| 
+      #When the user hits eight, they want to stay in the room, but they want to know how many people are in the room
       if event.value != "8" 
         say("leaving room") 
       end 
+      #setting the choice variable to the key pressed
       $choice = event.value    
     } 
   } 
@@ -157,8 +159,11 @@ while $choice != "0"
   #Move to the next conference 
   if $choice == "9" 
 
+    #This updates the database by subtracting 1 from the room count and removes the callerID
     updateCouchDBData(room.to_i, "sub", callerID) 
+    #Since the user is moving to the next room, set the conference ID to the next room
     room = room.to_i + 1 
+    #If the room number is greater than 9, set it back to the beginning
     if room.to_i > 9 
       room = "1" 
     end 
@@ -166,8 +171,11 @@ while $choice != "0"
   #Move to the previous conference 
   elsif $choice == "6" 
 
+    #This updates the database by subtracting 1 from the room count and removes the callerID
     updateCouchDBData(room.to_i, "sub", callerID) 
+    #Since the user is moving to the previous room, set the conference ID to the room before
     room = room.to_i - 1 
+    #If the room number is less than 1, set it to the last conference ID
     if room.to_i < 1 
       room = "9" 
     end 
@@ -175,9 +183,13 @@ while $choice != "0"
   #Listing all of the conferences 
   elsif $choice == "1" 
 
+    #Since this method will prompt the user which room they want to enter, they are no 
+    #longer in their current conferenece so remove them
     updateCouchDBData(room.to_i, "sub", callerID) 
+    #Use the method determineRoom to prompt the user
     room = determineRoom(conferenceRooms, "1") 
-    room = room.to_i - 1 
+    #Set the conference ID
+    room = room.to_i
 
   #Giving the number of people in that room 
   elsif $choice == "8" 
